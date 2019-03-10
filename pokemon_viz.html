@@ -8,6 +8,8 @@
 <!-- https://stackoverflow.com/questions/17341122/link-and-execute-external-javascript-file-hosted-on-github -->
 <script src="https://cdn.jsdelivr.net/gh/holtzy/D3-graph-gallery/LIB/d3-scale-radial.js"></script>
 
+<script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+
 <style>
     @font-face {
         font-family: 'poke_solid';
@@ -85,14 +87,14 @@
             // x-scale for unique type combos
             let x2 = d3.scaleBand()
                 .range([0, 2 * Math.PI])
-                .domain(data.map(function(d) { return get_type_combo(d); }));
+                .domain(data.map(function(d) { return getTypeCombo(d); }));
 
             let uniquePrimaryTypes = d3.nest()
                 .key(function(d) { return d.type1; })
                 .entries(data);
 
             let uniqueTypeCombos = d3.nest()
-                .key(function(d) { return get_type_combo(d); })
+                .key(function(d) { return getTypeCombo(d); })
                 .entries(data);
 
             // Set radials and x-scale according to vis type
@@ -114,7 +116,7 @@
             let typeCountValues = new Array(radials.length);
 
             for (let i=0; i<radials.length; i++) {
-                let pokemon = get_sorted_pokemon_by_type_desc_and_attr(data, radials[i].key, sortingAttribute);
+                let pokemon = getSortedPokemonByTypeDescAndAttr(data, radials[i].key, sortingAttribute);
                 let count = pokemon.length;
                 if (count > overallMax) overallMax = count;
 
@@ -215,7 +217,7 @@
 
             // Add pokemon sprites along each radial
             for (let i=0; i<radials.length; i++) {
-                let pokemon = get_sorted_pokemon_by_type_desc_and_attr(data, radials[i].key, sortingAttribute);
+                let pokemon = getSortedPokemonByTypeDescAndAttr(data, radials[i].key, sortingAttribute);
 
                 // Get two points on line along central axis of current type arc
                 let arcMidpoint = arcBaseMidpoints[i];
@@ -286,11 +288,7 @@
     let typeChange = function() {
         let selection = d3.select(this).property('value');
         bySubType = (selection !== "Primary Type");
-
-        // Delete then re-draw vis
-        d3.select("svg").remove();
-        add_svg();
-        show_vis(bySubType, sortingAttribute, svg);
+        reDrawVis();  // Delete then re-draw vis
     };
 
     d3.select("#dropdowns")
@@ -311,6 +309,16 @@
         .enter().append("option")
         .attr("value", function (d) { return d; })
         .text(function (d) { return d; });
+
+    // Pre-select typeDropdown selection if url-param provided
+    let typeSelection = getUrlParameter("id");
+    if (typeSelection !== null) {
+        typeSelection = typeSelection.replace(new RegExp("%22", 'g'), "");
+        typeSelection = typeSelection.replace(new RegExp("%20", 'g'), " ");
+        bySubType = typeSelection !== "Primary Type";
+        d3.select('#typeDropdown').property('value', typeSelection);
+        reDrawVis();
+    }
 
     // Add sorting attribute dropdown
     let sortByChange = function() {
@@ -345,7 +353,7 @@
         d3.select("#dropdowns").insert("br", "svg");
     }
 
-    function get_type_combo(d) {
+    function getTypeCombo(d) {
         return (d.type2 === "" || d.type1 === d.type2) ? d.type1 : d.type1 + "/" + d.type2;
     }
 
@@ -358,11 +366,11 @@
         }
     }
 
-    function get_sorted_pokemon_by_type_desc_and_attr(data, typeDesc, attribute) {
+    function getSortedPokemonByTypeDescAndAttr(data, typeDesc, attribute) {
         let pokemon = null;
 
         if (typeDesc.indexOf("/") !== -1) {
-            pokemon = data.filter(function(d) { return typeDesc === get_type_combo(d) || typeDesc === d.type1; });
+            pokemon = data.filter(function(d) { return typeDesc === getTypeCombo(d) || typeDesc === d.type1; });
         } else {
             pokemon = data.filter(function(d) { return typeDesc === d.type1; });
         }
@@ -370,6 +378,24 @@
         return pokemon.sort(function(a, b) {
             return a[attribute] - b[attribute];
         });
+    }
+
+    function reDrawVis() {
+        d3.select("svg").remove();
+        add_svg();
+        show_vis(bySubType, sortingAttribute, svg);
+    }
+
+    function getUrlParameter(name) {
+        let value = null;
+        $.each(window.location.search.slice(1).split("&"), function (i, kvp) {
+            let values = kvp.split("=");
+            if (name === values[0]) {
+                value = values[1] ? values[1] : values[0];
+                return false;
+            }
+        });
+        return value;
     }
 
 </script>
