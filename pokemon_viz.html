@@ -314,6 +314,7 @@
     let typeSelection = getUrlParameter("id");
     if (typeSelection !== null) {
         typeSelection = typeSelection.replace(new RegExp("%22", 'g'), "");
+        typeSelection = typeSelection.replace(new RegExp("%27", 'g'), "");
         typeSelection = typeSelection.replace(new RegExp("%20", 'g'), " ");
         bySubType = typeSelection !== "Primary Type";
         d3.select('#typeDropdown').property('value', typeSelection);
