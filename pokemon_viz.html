@@ -1,13 +1,9 @@
 <!DOCTYPE html>
+<!--suppress CssUnusedSymbol, JSUnresolvedVariable -->
 <meta charset="utf-8">
 
-<!-- Load d3.js -->
+<!-- Load d3 & jQuery -->
 <script src="http://d3js.org/d3.v4.js"></script>
-
-<!-- Function for radial charts -->
-<!-- https://stackoverflow.com/questions/17341122/link-and-execute-external-javascript-file-hosted-on-github -->
-<script src="https://cdn.jsdelivr.net/gh/holtzy/D3-graph-gallery/LIB/d3-scale-radial.js"></script>
-
 <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
 
 <style>
@@ -25,20 +21,20 @@
         margin-top: 10px;
         margin-left: 20px;
         font-size: 30px;
-        font-family: poke_solid;
+        font-family: poke_solid, serif;
     }
 
     #dropdowns {
         position: absolute;
         margin-top: 70px;
         margin-left: 20px;
-        font-family: poke_solid;
+        font-family: poke_solid, serif;
         color: yellow;
         text-shadow: -2px 0 blue, 0 2px blue, 2px 0 blue, 0 -2px blue;
     }
 
     .typeText {
-        font-family: poke_solid;
+        font-family: poke_solid, serif;
     }
 
     select {
@@ -112,6 +108,7 @@
 
             // Determine maximum value for selected attribute for each type
             let typeCounts = {};
+            let overallMin = 100;
             let overallMax = 0;
             let typeCountValues = new Array(radials.length);
 
@@ -119,16 +116,18 @@
                 let pokemon = getSortedPokemonByTypeDescAndAttr(data, radials[i].key, sortingAttribute);
                 let count = pokemon.length;
                 if (count > overallMax) overallMax = count;
-
+                if (count < overallMin) overallMin = count;
                 typeCounts[radials[i].key] = count;
                 typeCountValues[i] = count;
             }
 
             // Set y-axis
-            let yDelta = overallMax * ((bySubType) ? 18 : 38);
+            let imgDelta = (bySubType) ? 18 : 38;
+            let yMinDelta = overallMin * imgDelta;
+            let yMaxDelta = overallMax * imgDelta;
             let y = d3.scaleLinear()
                 .domain([0, overallMax])
-                .range([innerRadius, (innerRadius + yDelta)]);
+                .range([innerRadius + yMinDelta, innerRadius + yMaxDelta]);
 
             // Add the type arcs, computing & storing the midpoint of each arc's bottom path
             let arcBaseMidpoints = new Array(radials.length);
@@ -139,29 +138,16 @@
                 .append("path")
                 .attr("class", "typeArc")
                 .attr("id", function(d, i) { return "typeArc_" + i; })  // Unique id for each arc
-                //.attr("fill", "#f2f5f9")
                 .attr("fill", "none")
                 .attr("d", d3.arc()
                     .innerRadius(innerRadius)
-                    .outerRadius(function(d) { return y(typeCounts[d.key] + 0.5); })
+                    .outerRadius(function(d) { return y(typeCounts[d.key]); })
                     .startAngle(function(d) { return xScale(d.key); })
                     .endAngle(function(d) { return xScale(d.key) + xScale.bandwidth(); })
-                    //.cornerRadius(6)
                     .padAngle(0.05)
                     .padRadius(innerRadius))
                 .each(function(d, i) {
-                    // A regular expression that captures all in between the start of a string
-                    // (denoted by ^) and the first capital letter L
-                    let firstArcSection = /(^.+?)L/;
-                    // The [1] gives back the expression between the () (thus not the L as well)
-                    // which is exactly the arc statement
-                    let newArc = firstArcSection.exec(d3.select(this).attr("d"))[1];
-                    // Replace all the comma's so that IE can handle it -_-
-                    // The g after the / is a modifier that "find all matches rather than
-                    // stopping after the first match"
-                    newArc = newArc.replace(/,/g, " ");
-
-                    // Determine midpoint of bottom path of arc
+                    // Determine midpoint of bottom path of each arc
                     let bottomSection = /L(.*?)$/;
                     let bottom = bottomSection.exec(d3.select(this).attr("d"))[1];
                     let bottomLeft = bottom.split("A")[0];
@@ -169,51 +155,7 @@
                     let midX = (parseFloat(bottomLeft.split(",")[0]) + parseFloat(bottomRight.split(",")[0])) / 2;
                     let midY = (parseFloat(bottomLeft.split(",")[1]) + parseFloat(bottomRight.split(",")[1])) / 2;
                     arcBaseMidpoints[i] = [midX, midY];
-
-                    // If the end angle lies along the bottom of the graph
-                    // flip the end and start position
-                    let endAngle = xScale(d.key) + xScale.bandwidth();
-                    let rightRadial = (bySubType) ? "electric" : "bug";
-                    let leftRadial = (bySubType) ? "ground/rock" : "rock";
-                    if (endAngle > xScale(rightRadial) + xScale.bandwidth() && endAngle < xScale(leftRadial) + xScale.bandwidth()) {
-
-                        // Everything between the capital M and first capital A
-                        let startLoc = /M(.*?)A/;
-                        // Everything between the capital A and 0 0 1
-                        let middleLoc = /A(.*?)0 0 1/;
-                        // Everything between the 0 0 1 and the end of the string (denoted by $)
-                        let endLoc = /0 0 1 (.*?)$/;
-                        // Flip the direction of the arc by switching the start and end point
-                        // and using a 0 (instead of 1) sweep flag
-                        let newStart = endLoc.exec(newArc)[1];
-                        let newEnd = startLoc.exec(newArc)[1];
-                        let middleSec = middleLoc.exec(newArc)[1];
-
-                        // Build up the new arc notation, set the sweep-flag to 0
-                        newArc = "M" + newStart + "A" + middleSec + "0 0 0 " + newEnd;
-                    }
-
-                    // Create a new invisible arc that the text can flow along
-                    svg.append("path").attr("class", "hiddenArcs")
-                        .attr("id", "hiddenArc_" + i)
-                        .attr("d", newArc)
-                        .style("fill", "none");
                 });
-
-            // Append the label names to each hidden arc
-            svg.selectAll(".typeText")
-                .data(radials)
-                .enter().append("text")
-                .attr("class", "typeText")
-                .attr("dy", function(d, i) {
-                    return (bySubType) ? (11 <= i && i < 31) ? 13 : -6.5 : (4 <= i && i < 11) ? 40 : -4;
-                })
-                .append("textPath")
-                .attr("startOffset", "50%")
-                .style("text-anchor", "middle")
-                .style("font-size", () => { return (bySubType) ? "2px" : "18px"})
-                .attr("xlink:href", function(d, i) { return "#hiddenArc_" + i; })
-                .text(function(d) { return capitalize(d.key); });
 
             // Add pokemon sprites along each radial
             for (let i=0; i<radials.length; i++) {
@@ -223,7 +165,7 @@
                 let arcMidpoint = arcBaseMidpoints[i];
                 let arcCentroid = d3.arc()
                     .innerRadius(innerRadius)
-                    .outerRadius(y(100))
+                    .outerRadius(y(overallMax))
                     .startAngle(xScale(radials[i].key))
                     .endAngle(xScale(radials[i].key) + xScale.bandwidth())
                     .centroid();
@@ -238,15 +180,17 @@
                 let u = [vec[0] / vecLen, vec[1] / vecLen];
 
                 // Determine offsets
-                let xOffset = u[0] * ((bySubType) ? 15 : 35);  // amount to move xAnchor each iter
-                let yOffset = u[1] * ((bySubType) ? 15 : 35);  // amount to move yAnchor each iter
-                let spriteShift = (bySubType) ? 5 : 15;        // amount to shift sprite for point centering
+                let imgOffset = (bySubType) ? 13 : 39;
+                let xOffset = (u[0] * imgOffset);
+                let yOffset = (u[1] * imgOffset);
+                let spriteShift = (bySubType) ? 5 : 15;  // amount to shift sprite for point centering
 
+                // Add sprites
                 svg.append("g")
                     .selectAll("path")
                     .data(pokemon)
                     .enter()
-                    .each(function(d) {
+                    .each(function(d, i) {
                         svg.append("svg:image")
                             .attr("xlink:href", "pokemon_sprites/" + d.pokedex_number + ".png")
                             .attr("width", () => { return (bySubType) ? 10 : 30 })
@@ -260,6 +204,25 @@
                                 return ((yAnchor - yOffset) + yOffset) - spriteShift;
                             })
                             .append("svg:title").text(d.name);
+
+                        // Add labels
+                        if (i === pokemon.length - 1) {
+                            // Determine angle between x-axis & arc centroid for label rotation
+                            let theta = Math.atan2(arcMidpoint[1], arcMidpoint[0]) * (180/Math.PI); // convert to degrees
+                            let labelShift = (bySubType) ? 2.8 : 1.8; // how far to "step" along the radial
+                            let x = xAnchor + (labelShift * xOffset);
+                            let y = yAnchor + (labelShift * yOffset);
+                            if (arcMidpoint[0] < 0) { theta += 180 }  // flip labels on left side of vis
+
+                            svg.append("text")
+                                .attr("class", "typeText")
+                                .attr("x", x)
+                                .attr("y", y)
+                                .attr("transform", "rotate(" + theta + "," + x + "," + y + ")")
+                                .style("text-anchor", "middle")
+                                .style("font-size", () => { return (bySubType) ? "6px" : "20px"})
+                                .text(() => { return capitalize((bySubType) ? getTypeCombo(d) : d.type1).replace("/", " / "); });
+                        }
                     });
             }
         });
@@ -398,5 +361,5 @@
         });
         return value;
     }
-
+    
 </script>
