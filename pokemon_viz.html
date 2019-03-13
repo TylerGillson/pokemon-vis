@@ -71,7 +71,7 @@
     }
 
     // Method for drawing the vis
-    function show_vis(bySubType, sortingAttribute, svg) {
+    function show_vis(bySubType, sortingAttribute, svg, drawLabels=true) {
         d3.csv("pokemon_data.csv", function(data) {
             // Scales
 
@@ -206,7 +206,7 @@
                             .append("svg:title").text(d.name);
 
                         // Add labels
-                        if (i === pokemon.length - 1) {
+                        if (drawLabels === true && i === pokemon.length - 1) {
                             // Determine angle between x-axis & arc centroid for label rotation
                             let theta = Math.atan2(arcMidpoint[1], arcMidpoint[0]) * (180/Math.PI); // convert to degrees
                             let labelShift = (bySubType) ? 2.8 : 1.8; // how far to "step" along the radial
@@ -287,7 +287,8 @@
     // Add sorting attribute dropdown
     let sortByChange = function() {
         sortingAttribute = d3.select(this).property('value');
-        show_vis(bySubType, sortingAttribute, svg)
+        d3.select("image").remove();                       // remove all pokemon sprites
+        show_vis(bySubType, sortingAttribute, svg, false); // re-draw vis w/o re-drawing the radial labels
     };
 
     d3.select("#dropdowns")
