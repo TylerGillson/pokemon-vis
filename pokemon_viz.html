@@ -4,7 +4,7 @@
 
 <!-- Load d3 & jQuery -->
 <script src="http://d3js.org/d3.v4.js"></script>
-<script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 
 <style>
     @font-face {
@@ -37,6 +37,11 @@
         font-family: poke_solid, serif;
     }
 
+    .featured_pokemon.title {
+        font-family: poke_solid, serif;
+        text-shadow: -4px 0 blue, 0 4px blue, 4px 0 blue, 0 -4px blue;
+    }
+
     select {
         margin-top: 5px;
     }
@@ -61,6 +66,11 @@
     let sortingAttribute = "pokedex_number";
     let svg = null;
 
+    // Scales for stat bars:
+    let attackColor, hpColor, defenseColor, spAttackColor, spDefenseColor, speedColor = null;
+    let attackBar, hpBar, defenseBar, spAttackBar, spDefenseBar, speedBar = null;
+    let featuringPokemon = false;
+
     // Method for creating/re-creating the vis's svg object
     function add_svg() {
         svg = d3.select("#pokemon_vis")
@@ -76,10 +86,62 @@
             .attr("transform", "translate(" + (width / 2 + margin.left) + "," + (height / 2 + margin.top) + ")");
     }
 
+    function drawPokeball() {
+        svg.append("g")
+            .append("svg:image")
+            .attr("xlink:href", "pokeball.png")
+            .attr("class", "pokeball")
+            .attr("pointer-events", "none")
+            .attr("width", 180)
+            .attr("height", 180)
+            .attr("x", -90)
+            .attr("y", -90);
+    }
+
     // Method for drawing the vis
     function show_vis(bySubType, sortingAttribute, svg, drawLabels=true) {
         d3.csv("pokemon_data.csv", function(data) {
             // Scales
+            let max = d3.max(data, function(d) { return parseInt(d.attack); }) + 5;
+            let min = d3.min(data, function(d) { return parseInt(d.attack); }) - 5;
+            attackBar = d3.scaleLinear().domain([min, max]).range([0,70]);
+            attackColor = d3.scaleLinear().domain([min, max]).interpolate(d3.interpolateHcl).range([d3.rgb("#f00"), d3.rgb('#008000')]);
+
+            max = d3.max(data, function(d) { return parseInt(d.defense); }) + 5;
+            min = d3.min(data, function(d) { return parseInt(d.defense); }) - 5;
+            defenseBar = d3.scaleLinear().domain([min, max]).range([0,70]);
+            defenseColor = d3.scaleLinear().domain([min, max]).interpolate(d3.interpolateHcl).range([d3.rgb("#f00"), d3.rgb('#008000')]);
+
+            max = d3.max(data, function(d) { return parseInt(d.hp); }) + 5;
+            min = d3.min(data, function(d) { return parseInt(d.hp); }) - 5;
+            hpBar = d3.scaleLinear().domain([min, max]).range([0,70]);
+            hpColor = d3.scaleLinear().domain([min, max]).interpolate(d3.interpolateHcl).range([d3.rgb("#f00"), d3.rgb('#008000')]);
+
+            max = d3.max(data, function(d) { return parseInt(d.sp_attack); }) + 5;
+            min = d3.min(data, function(d) { return parseInt(d.sp_attack); }) - 5;
+            spAttackBar = d3.scaleLinear().domain([min, max]).range([0,70]);
+            spAttackColor = d3.scaleLinear().domain([min, max]).interpolate(d3.interpolateHcl).range([d3.rgb("#f00"), d3.rgb('#008000')]);
+
+            max = d3.max(data, function(d) { return parseInt(d.sp_defense); }) + 5;
+            min = d3.min(data, function(d) { return parseInt(d.sp_defense); }) - 5;
+            spDefenseBar = d3.scaleLinear().domain([min, max]).range([0,70]);
+            spDefenseColor = d3.scaleLinear().domain([min, max]).interpolate(d3.interpolateHcl).range([d3.rgb("#f00"), d3.rgb('#008000')]);
+
+            max = d3.max(data, function(d) { return parseInt(d.speed); }) + 5;
+            min = d3.min(data, function(d) { return parseInt(d.speed); }) - 5;
+            speedBar = d3.scaleLinear().domain([min, max]).range([0,70]);
+            speedColor = d3.scaleLinear().domain([min, max]).interpolate(d3.interpolateHcl).range([d3.rgb("#f00"), d3.rgb('#008000')]);
+
+            let getBarScales = function(i) {
+                switch (i) {
+                    case 0: return [attackBar, attackColor];
+                    case 1: return [defenseBar, defenseColor];
+                    case 2: return [hpBar, hpColor];
+                    case 3: return [spAttackBar, spAttackColor];
+                    case 4: return [spDefenseBar, spDefenseColor];
+                    case 5: return [speedBar, speedColor];
+                }
+            };
 
             // x-scale for unique primary types
             let x = d3.scaleBand()
@@ -104,13 +166,7 @@
             let xScale = (bySubType) ? x2 : x;
 
             // Add central pokeball
-            svg.append("g")
-                .append("svg:image")
-                .attr("xlink:href", "pokeball.png")
-                .attr("width", 180)
-                .attr("height", 180)
-                .attr("x", -90)
-                .attr("y", -90);
+            drawPokeball();
 
             // Determine maximum value for selected attribute for each type
             let typeCounts = {};
@@ -144,7 +200,7 @@
                 .append("path")
                 .attr("class", "typeArc")
                 .attr("id", function(d, i) { return "typeArc_" + i; })  // Unique id for each arc
-                .attr("fill", "none")
+                .attr("fill", "transparent")
                 .attr("d", d3.arc()
                     .innerRadius(innerRadius)
                     .outerRadius(function(d) { return y(typeCounts[d.key]); })
@@ -199,6 +255,7 @@
                     .each(function(d, i) {
                         svg.append("svg:image")
                             .attr("xlink:href", "pokemon_sprites/" + d.pokedex_number + ".png")
+                            .attr("class", "pokemon_sprite")
                             .attr("width", () => { return (bySubType) ? 10 : 30 })
                             .attr("height", () => { return (bySubType) ? 10 : 30 })
                             .attr("x", () => {
@@ -230,6 +287,90 @@
                                 .text(() => { return capitalize((bySubType) ? getTypeCombo(d) : d.type1).replace("/", " / "); });
                         }
                     });
+
+                // On-click for pokemon images
+
+                $(".pokemon_sprite").on("click", function() {
+                    let imgPath = this.getAttribute("href");
+                    let id = parseInt(imgPath.split("/")[1].split(".")[0]) - 1;
+                    featuringPokemon = true;
+                    d3.select(".pokeball").remove();
+                    d3.selectAll(".featured_pokemon").remove();
+
+                    /*
+                    svg.append("g")
+                        .append("circle")
+                        .attr("class", "featured_pokemon")
+                        .style("stroke", "black")
+                        .style("fill", "transparent")
+                        .attr("r", () => ((bySubType) ? 90 : 100))
+                        .attr("cx", 0)
+                        .attr("cy", 0);*/
+
+                    svg.append("svg:image")
+                        .attr("xlink:href", imgPath)
+                        .attr("class", "featured_pokemon")
+                        .attr("width", () => ((bySubType) ? 60 : 50))
+                        .attr("height", () => ((bySubType) ? 60 : 50))
+                        .attr("x", () => ((bySubType) ? -30 : -25))
+                        .attr("y", -70);
+
+                    svg.append("text")
+                        .attr("class", "featured_pokemon title")
+                        .attr("x", 0)
+                        .attr("y", -80)
+                        .style("fill", "yellow")
+                        .style("text-anchor", "middle")
+                        .style("font-size", () => ((bySubType) ? "10px" : "12px"))
+                        .text(data[id]["name"]);
+
+                    let statLabelY = 5;
+                    let statRectY = (bySubType) ? -3 : -6;
+                    let attributeLabels = ["Attack", "HP", "Defense", "Sp. Attack", "Sp. Defense", "Speed"];
+
+                    for (let i = 0; i < attributeLabels.length; i++) {
+                        let s = attributeLabels[i].replace(" ", "").replace(".", "_").toLowerCase();
+                        let value = data[id][s];
+
+                        svg.append("text")
+                            .attr("class", "featured_pokemon")
+                            .attr("x", () => ((bySubType) ? -60 : -70))
+                            .attr("y", statLabelY)
+                            .style("text-anchor", "right")
+                            .style("font-size", () => ((bySubType) ? "8px" : "10px"))
+                            .style("font-family", "calibri")
+                            .style("font-weight", "bold")
+                            .text(attributeLabels[i]);
+
+                        svg.append("text")
+                            .attr("class", "featured_pokemon")
+                            .attr("x", -15)
+                            .attr("y", statLabelY)
+                            .style("text-anchor", "right")
+                            .style("font-size", () => ((bySubType) ? "8px" : "10px"))
+                            .style("font-family", "calibri")
+                            .text(value);
+
+                        svg.append("rect")
+                            .attr("class", "featured_pokemon")
+                            .attr("x", 5)
+                            .attr("y", statRectY)
+                            .attr("rx", 2)
+                            .attr("ry", 2)
+                            .attr("width", getBarScales(i)[0](value))
+                            .attr("height", () => ((bySubType) ? 10 : 14))
+                            .style("fill", getBarScales(i)[1](value));
+
+                        statLabelY += (bySubType) ? 12 : 16;
+                        statRectY += (bySubType) ? 12 : 16;
+                    }
+                }).on("mouseout", function() {
+                    if (featuringPokemon) {
+                        d3.selectAll(".featured_pokemon").remove();
+                        drawPokeball();
+                        featuringPokemon = false;
+                    }
+                });
             }
         });
     }
