@@ -96,7 +96,8 @@
                 let m = d3.mouse(this);
                 let distance = getDistance(m[0], featuredX, m[1], featuredY);
                 let opacity = mouseDistanceOpacity(distance);
-                $(".pokeball").css('opacity', opacity);
+                $(".pokeball").css("opacity", opacity);
+                $(".featured_pokemon").css("opacity", 1 - opacity);
 
                 if (opacity >= 1) {
                     d3.selectAll(".featured_pokemon").remove();
