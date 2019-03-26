@@ -55,6 +55,7 @@
     let margin = {top: 100, right: 100, bottom: 100, left: 100},
         width = 1400 - margin.left - margin.right,
         height = 800 - margin.top - margin.bottom,
+        hypotenuse = Math.sqrt((width * width) + (height * height)),
         innerRadius = 90;
 
     // Configure pan & zoom
@@ -70,6 +71,7 @@
     let attackColor, hpColor, defenseColor, spAttackColor, spDefenseColor, speedColor = null;
     let attackBar, hpBar, defenseBar, spAttackBar, spDefenseBar, speedBar = null;
     let featuringPokemon = false;
+    let featuredX, featuredY = 0;
 
     // Method for creating/re-creating the vis's svg object
     function add_svg() {
@@ -84,6 +86,24 @@
             .call(zoom.transform, transform)
             .append("g")
             .attr("transform", "translate(" + (width / 2 + margin.left) + "," + (height / 2 + margin.top) + ")");
+
+        // Linear scale for adjusting opacity according to cursor's distance from img sprite:
+        let mouseDistanceFactor = (bySubType) ? 10 : 6;
+        let mouseDistanceOpacity = d3.scaleLinear().domain([0, hypotenuse / mouseDistanceFactor]).range([0,1]);
+
+        svg.on("mousemove", function() {
+            if (featuringPokemon) {
+                let m = d3.mouse(this);
+                let distance = getDistance(m[0], featuredX, m[1], featuredY);
+                let opacity = mouseDistanceOpacity(distance);
+                $(".pokeball").css('opacity', opacity);
+
+                if (opacity >= 1) {
+                    d3.selectAll(".featured_pokemon").remove();
+                    featuringPokemon = false;
+                }
+            }
+        });
     }
 
     function drawPokeball() {
@@ -291,21 +311,17 @@
                 // On-click for pokemon images
 
                 $(".pokemon_sprite").on("click", function() {
+                    featuringPokemon = true;
+
                     let imgPath = this.getAttribute("href");
                     let id = parseInt(imgPath.split("/")[1].split(".")[0]) - 1;
-                    featuringPokemon = true;
-                    d3.select(".pokeball").remove();
-                    d3.selectAll(".featured_pokemon").remove();
+                    let offset = (bySubType) ? 5 : 15;
 
-                    /*
-                    svg.append("g")
-                        .append("circle")
-                        .attr("class", "featured_pokemon")
-                        .style("stroke", "black")
-                        .style("fill", "transparent")
-                        .attr("r", () => ((bySubType) ? 90 : 100))
-                        .attr("cx", 0)
-                        .attr("cy", 0);*/
+                    featuredX = this.x.baseVal.value + offset;
+                    featuredY = this.y.baseVal.value + offset;
+
+                    $(".pokeball").css("opacity", 0);
+                    d3.selectAll(".featured_pokemon").remove();
 
                     svg.append("svg:image")
                         .attr("xlink:href", imgPath)
@@ -321,7 +337,7 @@
                         .attr("y", -80)
                         .style("fill", "yellow")
                         .style("text-anchor", "middle")
-                        .style("font-size", () => ((bySubType) ? "10px" : "12px"))
+                        .style("font-size", () => ((bySubType) ? "10px" : "16px"))
                         .text(data[id]["name"]);
 
                     let statLabelY = 5;
@@ -363,12 +379,6 @@
 
                         statLabelY += (bySubType) ? 12 : 16;
                         statRectY += (bySubType) ? 12 : 16;
-                    }
-                }).on("mouseout", function() {
-                    if (featuringPokemon) {
-                        d3.selectAll(".featured_pokemon").remove();
-                        drawPokeball();
-                        featuringPokemon = false;
                     }
                 });
             }
@@ -509,5 +519,10 @@
         });
         return value;
     }
-    
+
+    function getDistance(x1, x2, y1, y2) {
+        let xs = x2 - x1, ys = y2 - y1;
+        return Math.sqrt((xs * xs) + (ys * ys));
+    }
+
 </script>
