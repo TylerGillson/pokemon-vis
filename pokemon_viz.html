@@ -39,7 +39,7 @@
 
     .featured_pokemon.title {
         font-family: poke_solid, serif;
-        text-shadow: -4px 0 blue, 0 4px blue, 4px 0 blue, 0 -4px blue;
+        text-shadow: -4px 0 yellow, 0 4px yellow, 4px 0 yellow, 0 -4px yellow;
     }
 
     select {
@@ -53,8 +53,8 @@
 
     // Set the dimensions and margins of the vis
     let margin = {top: 100, right: 100, bottom: 100, left: 100},
-        width = 1400 - margin.left - margin.right,
-        height = 800 - margin.top - margin.bottom,
+        width = $(window).width() - margin.left - margin.right,
+        height = $(window).height() - margin.top - margin.bottom,
         hypotenuse = Math.sqrt((width * width) + (height * height)),
         innerRadius = 90;
 
@@ -341,7 +341,7 @@
                         .attr("class", "featured_pokemon title")
                         .attr("x", 0)
                         .attr("y", -80)
-                        .style("fill", "yellow")
+                        .style("fill", "black")
                         .style("text-anchor", "middle")
                         .style("font-size", () => ((bySubType) ? "10px" : "16px"))
                         .text(data[id]["name"]);
@@ -506,7 +506,10 @@
         if (typeDesc.indexOf("/") !== -1) {
             pokemon = data.filter(function(d) { return typeDesc === getTypeCombo(d) || typeDesc === d.type1; });
         } else {
-            pokemon = data.filter(function(d) { return typeDesc === d.type1; });
+            if (!bySubType)
+                pokemon = data.filter(function(d) { return typeDesc === d.type1; });
+            else
+                pokemon = data.filter(function(d) { return typeDesc === d.type1 && (d.type2 === "" || d.type2 === d.type1); });
         }
 
         return pokemon.sort(function(a, b) {
